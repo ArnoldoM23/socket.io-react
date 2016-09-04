@@ -4,6 +4,8 @@ import ReactDOM from 'react-dom';
 import  io from 'socket.io-client/socket.io';
 
 var socket = io();
+var ROOM = "chat";
+var SIGNAL_ROOM = "signal_room";
 
 class PeerChat extends Component {
 
@@ -22,12 +24,12 @@ class PeerChat extends Component {
      
         var theirVideoArea = document.querySelector("#theirVideoTag");
         var myName = document.querySelector("#myName");
+        var userThree = document.querySelector("#userThree");
         var myMessage = document.querySelector("#myMessage");
         var sendMessage = document.querySelector("#sendMessage");
         var chatArea = document.querySelector("#chatArea");
         var signalingArea = document.querySelector("#signalingArea")
-        var ROOM = "chat";
-        var SIGNAL_ROOM = "signal_room";
+        
         var configuration = {
             'iceServers': [{
                 'url': 'stun:stun.l.google.com:19302'
@@ -47,8 +49,9 @@ class PeerChat extends Component {
             "room": SIGNAL_ROOM
         });
         socket.on('signaling_message', function(data) {
-            console.log('data in signaling_message')
-            displaySignalMessage("Signal received: " + data.type);
+            console.log('data in signaling_message', data)
+
+         
             //Setup the RTC Peer connection object
             if(!rtcPeerConn)
                 startSignaling();
@@ -69,8 +72,6 @@ class PeerChat extends Component {
         });
 
         function startSignaling(){
-            console.log('inside of startSignaling')
-            displaySignalMessage("starling signaling...");
             rtcPeerConn = new webkitRTCPeerConnection(configuration);
             //send  any ice candidates to the other peer
             rtcPeerConn.onicecandidate = function(evt) {
@@ -83,17 +84,17 @@ class PeerChat extends Component {
                         "room": SIGNAL_ROOM
                     });
                 }
-                displaySignalMessage("completed that ice candidate...");
+             
             };
             //let the 'negotiationneeded' event trigger offer generation
             rtcPeerConn.onnegotiationneeded = function(){
-                displaySignalMessage("on negotiation called");
-                rtcPeerConn.createOffer(sendLocalDesc, logError);
+                     rtcPeerConn.createOffer(sendLocalDesc, logError);
             }
             //once remote stream arrives, show it in the remote video element
             rtcPeerConn.onaddstream = function(evt) {
-                displaySignalMessage("going to add their stream");
+               
                 theirVideoArea.src = URL.createObjectURL(evt.stream);
+                userThree.src = URL.createObjectURL(evt.stream)
             }
             //get a local stream, show it in our video tag and add it to be sent
             navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
@@ -102,7 +103,6 @@ class PeerChat extends Component {
                 'audio': true,
                 'video': true
             }, function(stream){
-                displaySignalMessage("going to display my stream...");
                 myVideoArea.src = URL.createObjectURL(stream);
                 rtcPeerConn.addStream(stream);
             }, logError)
@@ -110,7 +110,6 @@ class PeerChat extends Component {
 
         function sendLocalDesc(desc){
             rtcPeerConn.setLocalDescription(desc, function() {
-                displayMessage("sending local description");
                 socket.emit('signal', {"type": "SDP", "message": JSON.stringify({ 'sdp': 
                     rtcPeerConn.localDescription}), "room": SIGNAL_ROOM});
             }, logError);
@@ -125,6 +124,7 @@ class PeerChat extends Component {
         });
 
         socket.on('message', function(data){
+            console.log('message data +++', data)
             displayMessage(data.author + ": " + data.message);
         });
 
@@ -135,23 +135,32 @@ class PeerChat extends Component {
         function displaySignalMessage(message) {
             signalingArea.innerHTML = signalingArea.innerHTML + "</br>" + message;
         }
+
+        sendMessage.addEventListener('click', function(ev){
+            console.log('button has been click')
+            ev.preventDefault();
+            var data = {
+                "author": myName.value, 
+                "message": myMessage.value, 
+                "room": ROOM
+            };
+            console.log('socket.id', socket.id)
+            console.log('data inside click button', data)
+            socket.emit('send', data);
+        })
     }
    
-    // testing socket io connection.
 
-        // sendMessage.addEventListener('click', function(ev){
-        //     ev.preventDefault();
-        //     socket.emit('send', {"author": myName.value, "message": myMessage.value, "room": ROOM});
-        // }, false)
     render(){
         return (
             <div>
                 <video id="myVideoTag" autoPlay></video>
                 <video id="theirVideoTag" autoPlay></video>
+                <video id="userThree" autoPlay></video>
                 <div>
                     <label>Your Name</label><input id="myName" type="/text" />
                     <label>Message</label><input id="myMessage" type="/text" />
-                    <input onClick={() => { socket.emit('send', {"author": myName.value, "message": myMessage.value, "room": ROOM});} } id="sendMessage" type="submit" />
+                    <input id="sendMessage" type="submit" />
                     <div id="chatArea" >Message Output:<br/></div>
                     <div id="signalingArea">Signaling Messages:<br/></div>
                 </div>  

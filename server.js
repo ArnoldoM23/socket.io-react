@@ -58,7 +58,9 @@ io.on('connection', function (socket) {
     });
   });
 
-  io.on('send', function(data){
+  socket.on('send', function(data){
+    console.log('data in send method', data)
+    console.log('socket.id', socket.id)
   	socket.to(data.room).broadcast.emit('message', {
   		message: data.message,
   		author: data.author
