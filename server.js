@@ -15,60 +15,44 @@ var proxy = httpProxy.createProxyServer({
   changeOrigin: true
 });
 // connection for production
-mongoose.connect('mongodb://museum:museum12345@ds043027.mlab.com:43027/vrmuseum');
-
+// mongoose.connect('mongodb://yourmongolabconnection.mlab.com:');
 
 // // connection local
-// mongoose.connect('mongo://localhost/users');
+// mongoose.connect('mongo://localhost/yourLocaldb');
 
 //serving our index.html
 app.use(express.static(publicPath));
-
-
-//server/compiler.js runs webpack-dev-server which creates the bundle.js which index.html serves
-//the compiler adds some console logs for some extra sugar
-//notice that you will not see a physical bundle.js because webpack-dev-server runs it from memory
 var bundle = require('./server/compiler.js')
 bundle()
 
 app.get('/', function(req, res){
 	res.render('index.html');
 })
-
-
-
-
+// connect to socket io
 io.on('connection', function (socket) {
-	socket.emit('news', { hello: 'World io' });
-
-	socket.on('my other event', function (data) {
-  console.log(data);
-	});
-
   socket.on('ready', function(data){
+    // join chat rooms
   	socket.join(data.chat_room);
   	socket.join(data.signal_room);
-
+    // announce your has join
   	socket.to(data.chat_room).broadcast.emit('announce', {
   		message: 'New client in the ' + data.chat_room + 'room.'
   	});
-
     socket.to(data.signal_room).broadcast.emit('announce', {
       message: 'New client in the ' + data.signal_room + 'room.'
     });
   });
 
   socket.on('send', function(data){
-    console.log('data in send method', data)
-    console.log('socket.id', socket.id)
+    // Send messages to user
   	socket.to(data.room).broadcast.emit('message', {
   		message: data.message,
   		author: data.author
   	})
   });
 
+// Webrtc signaling
   socket.on('signal', function(data){
-  	// note the user of req here for broadcasting so only the sender doesn't receive ther own messages. We are using req instead of app
   	socket.to(data.room).broadcast.emit('signaling_message', {
   		type: data.type,
   		message: data.message
